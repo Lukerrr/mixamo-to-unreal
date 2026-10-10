@@ -393,7 +393,7 @@
   const runs = new Map(); // li -> run()
   function updateActions() {
     $('actions').hidden = $('files').children.length === 0;
-    $('zip').hidden = results.length < 2;
+    $('zip').hidden = results.length === 0;
   }
 
   async function handle(file) {
