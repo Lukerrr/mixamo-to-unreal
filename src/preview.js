@@ -38,6 +38,20 @@ export async function createPreview(container) {
   const grid = new THREE.GridHelper(2000, 40, new THREE.Color(css('--line') || '#2e2c29'), new THREE.Color(css('--line') || '#2e2c29'));
   scene.add(grid);
 
+  // Origin: axis lines through (0, 0, 0) in UE colors (red X, green Y) and a dot
+  for (const [dir, color] of [[new THREE.Vector3(1, 0, 0), '#ff6b6f'], [new THREE.Vector3(0, 0, 1), '#5cc98e']]) {
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([dir.clone().multiplyScalar(-1000), dir.clone().multiplyScalar(1000)]),
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }),
+    );
+    line.position.y = 0.2;
+    scene.add(line);
+  }
+  const origin = new THREE.Mesh(new THREE.CircleGeometry(4, 24), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  origin.rotation.x = -Math.PI / 2;
+  origin.position.y = 0.3;
+  scene.add(origin);
+
   // Root marker: a ring on the floor plus a small arrow pointing where the root faces
   const marker = new THREE.Group();
   const ring = new THREE.Mesh(
