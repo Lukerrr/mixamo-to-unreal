@@ -22,3 +22,7 @@ Open http://localhost:8173.
 - `src/fbx.js`: binary FBX 7.x reader/writer. An unmodified file round-trips byte-for-byte.
 - `src/convert.js`: the conversion itself.
 - `src/zip.js`: bundles several results into a ZIP.
+
+## License
+
+MIT
