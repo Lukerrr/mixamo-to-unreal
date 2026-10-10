@@ -416,7 +416,7 @@
     };
     get.onclick = () => download(new Blob([entry.bytes]), outName);
     play.onclick = () => openPreview(li, entry.bytes, outName);
-    row.append(slot, el('span', 'name', file.name), rerun, el('span', 'spacer'), more, get);
+    row.append(slot, el('span', 'name', file.name), el('span', 'spacer'), rerun, more, get);
     li.append(row, details, error);
     $('files').append(li);
     const input = await file.arrayBuffer();
