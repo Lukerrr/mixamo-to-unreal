@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#161514">
+<title>Mixamo to Unreal Engine Converter: Root Bone &amp; Root Motion</title>
+<meta name="description" content="Free online tool that converts Mixamo FBX animations for Unreal Engine 5: adds a root bone, enables root motion and renames bones to the UE Mannequin skeleton. Runs in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mixamo to Unreal Engine Converter">
+<meta property="og:description" content="Add a root bone and root motion to Mixamo animations for Unreal Engine. Free, in your browser.">
+<meta property="og:image" content="og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mixamo to Unreal Engine Converter">
+<meta name="twitter:description" content="Add a root bone and root motion to Mixamo animations for Unreal Engine. Free, in your browser.">
+<meta name="twitter:image" content="og.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Mixamo to Unreal Engine Converter",
+  "description": "Free online tool that converts Mixamo FBX animations for Unreal Engine 5: adds a root bone, enables root motion and renames bones to the UE Mannequin skeleton. Runs in your browser.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any (web browser)",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23ff7a45'/><path d='M10 16h11m-4-5 5 5-5 5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #161514;
+    --card: #1f1e1c;
+    --ink: #f1eee9;
+    --soft: #8f8a83;
+    --line: #2e2c29;
+    --accent: #ff8a5c;
+    --accent-ink: #1a1009;
+    --accent-wash: #2c1d15;
+    --ok: #5cc98e;
+    --err: #ff6b6f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 72px 16px 48px; }
+
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
+  h1 .arrow { color: var(--accent); }
+  .lead { color: var(--soft); margin: 6px 0 32px; }
+
+  /* drop zone */
+  #drop {
+    display: grid; place-items: center; gap: 10px; text-align: center;
+    padding: 44px 16px; cursor: pointer;
+    background: var(--card); box-shadow: var(--shadow);
+    border: 2px dashed transparent;
+    transition: transform .15s ease, border-color .15s ease, background .15s ease;
+  }
+  #drop:hover { transform: translateY(-2px); }
+  #drop.over { border-color: var(--accent); background: var(--accent-wash); transform: scale(1.01); }
+  #drop .icon {
+    width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center;
+    background: var(--accent-wash); color: var(--accent);
+  }
+  #drop strong { font-weight: 500; font-size: 17px; }
+  #drop small { color: var(--soft); font-size: 14px; }
+  #drop input { display: none; }
+
+  /* toggles */
+  .toggles { margin: 20px 4px 0; display: grid; gap: 12px; }
+  .toggle { display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch {
+    flex: none; width: 38px; height: 22px; border-radius: 99px; background: var(--line);
+    position: relative; transition: background .2s ease;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .2s ease;
+  }
+  .toggle input:checked + .switch { background: var(--accent); }
+  .toggle input:checked + .switch::after { transform: translateX(16px); }
+  .toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toggle .label { font-size: 15px; }
+  .toggle .hint { color: var(--soft); font-size: 13px; display: block; line-height: 1.3; }
+
+  /* files */
+  #files { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 8px; }
+  .file {
+    background: var(--card); padding: 8px 8px 8px 16px; box-shadow: var(--shadow);
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--soft); }
+  .file.busy .dot { animation: blink 1s ease infinite; }
+  .file.ok .dot { background: var(--ok); }
+  .file.err .dot { background: var(--err); }
+  @keyframes blink { 50% { opacity: .3; } }
+  .name { flex: 1; min-width: 0; font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .more, .get {
+    flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+    border: 0; border-radius: 10px; background: none; cursor: pointer;
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+  }
+  .more { color: var(--soft); }
+  .more:hover, .more[aria-expanded="true"] { color: var(--ink); background: var(--line); }
+  .get { color: var(--accent); }
+  .get:hover { background: var(--accent-wash); }
+  .get:active { transform: scale(.9); }
+  .more:active { transform: scale(.9); }
+  .more:focus-visible, .get:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .details { margin: 8px 0 2px 18px; padding: 0; list-style: none; color: var(--soft); font-size: 13px; }
+  .details li::before { content: "· "; }
+  .error { margin: 6px 0 2px 18px; color: var(--err); font-size: 13px; }
+
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px; }
+  .link { border: 0; background: none; font: inherit; font-size: 14px; color: var(--soft); cursor: pointer; padding: 0; }
+  .link:hover { color: var(--ink); }
+  .link.strong { color: var(--accent); font-weight: 500; }
+
+  /* faq */
+  .faq { margin-top: 72px; }
+  .faq h2 { font-size: 15px; font-weight: 500; color: var(--soft); margin: 0 0 8px 4px; }
+  .faq details { border-top: 1px solid var(--line); }
+  .faq details:last-child { border-bottom: 1px solid var(--line); }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 14px 4px; font-size: 15px;
+    display: flex; justify-content: space-between; gap: 12px;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--soft); transition: transform .2s ease; }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq summary:hover { color: var(--accent); }
+  .faq p { margin: 0 4px 16px; color: var(--soft); font-size: 14px; }
+  .faq code { font-size: 13px; color: var(--ink); }
+
+  footer { margin-top: 40px; color: var(--soft); font-size: 13px; text-align: center; }
+  footer p { margin: 4px 0; }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 420px) {
+    main { padding-top: 40px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>mixamo <span class="arrow">→</span> unreal</h1>
+  <p class="lead">Add a root bone and root motion to Mixamo animations for Unreal Engine.</p>
+
+  <label id="drop">
+    <span class="icon" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m-4.5 4.5L12 4l4.5 4.5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>
+    </span>
+    <strong>Drop your .fbx files</strong>
+    <small>or click to pick them</small>
+    <input id="input" type="file" accept=".fbx" multiple>
+  </label>
+
+  <div class="toggles">
+    <label class="toggle">
+      <input id="rootMotion" type="checkbox" checked>
+      <span class="switch" aria-hidden="true"></span>
+      <span><span class="label">Root motion</span><span class="hint">Walking moves the root</span></span>
+    </label>
+    <label class="toggle">
+      <input id="rootRotation" type="checkbox">
+      <span class="switch" aria-hidden="true"></span>
+      <span><span class="label">Root rotation</span><span class="hint">Turning rotates the root</span></span>
+    </label>
+  </div>
+
+  <ul id="files"></ul>
+  <div class="actions" id="actions" hidden>
+    <button class="link" id="clear">Clear</button>
+    <button class="link strong" id="zip">Download all as .zip</button>
+  </div>
+
+  <section class="faq">
+    <h2>FAQ</h2>
+    <details>
+      <summary>Why does Unreal need a root bone?</summary>
+      <p>Mixamo skeletons start at the Hips bone. Unreal Engine takes root motion from the top bone of the skeleton, so without a separate root bone the character can't move its capsule. This tool adds a <code>root</code> bone and moves the walking motion from the hips onto it.</p>
+    </details>
+    <details>
+      <summary>What does it change in the file?</summary>
+      <p>It adds a <code>root</code> bone, moves the horizontal hips movement onto it (and, if you want, the turning too) and renames bones to the UE Mannequin names: <code>pelvis</code>, <code>spine_01</code>, <code>thigh_l</code> and so on. The animation looks exactly the same as before.</p>
+    </details>
+    <details>
+      <summary>With Skin or Without Skin?</summary>
+      <p>Both work. Download from Mixamo as FBX Binary. A file with skin keeps its mesh, a file without skin stays skeleton only.</p>
+    </details>
+    <details>
+      <summary>How do I import it into Unreal Engine?</summary>
+      <p>Import a converted character with skin first. For animations without skin, pick that character's skeleton in the import dialog. To use root motion, turn on <code>Enable Root Motion</code> in the Animation Sequence.</p>
+    </details>
+    <details>
+      <summary>Is it free? Are my files uploaded?</summary>
+      <p>It's free. Everything runs in your browser, so your files never leave your computer.</p>
+    </details>
+  </section>
+
+  <footer>
+    <p>Files never leave your computer.</p>
+  </footer>
+</main>
+
+<script type="module">
+  import { convertMixamo } from './src/convert.js';
+  import { makeZip } from './src/zip.js';
+
+  const $ = (id) => document.getElementById(id);
+  const results = []; // {name, bytes}
+
+  for (const id of ['rootMotion', 'rootRotation']) {
+    const key = 'm2ue-' + id;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) $(id).checked = saved === '1';
+    } catch {}
+    $(id).addEventListener('change', (e) => {
+      try { localStorage.setItem(key, e.target.checked ? '1' : '0'); } catch {}
+    });
+  }
+  const options = () => ({
+    naming: 'mannequin',
+    rootMotion: $('rootMotion').checked ? 'horizontal' : 'none',
+    rootRotation: $('rootRotation').checked,
+  });
+
+  function download(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  const el = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, text ? { textContent: text } : {});
+
+  async function handle(file) {
+    const li = el('li', 'file busy');
+    const row = el('div', 'row');
+    row.append(el('span', 'dot'), el('span', 'name', file.name));
+    li.append(row);
+    $('files').append(li);
+    try {
+      const { bytes, report } = await convertMixamo(await file.arrayBuffer(), options());
+      const outName = file.name.replace(/\.fbx$/i, '') + '_UE.fbx';
+      results.push({ name: outName, bytes });
+      li.className = 'file ok';
+
+      const details = el('ul', 'details');
+      details.hidden = true;
+      for (const line of report) details.append(el('li', '', line));
+      const more = el('button', 'more');
+      more.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+      more.title = 'Details';
+      more.setAttribute('aria-label', 'Details');
+      more.setAttribute('aria-expanded', 'false');
+      more.onclick = () => {
+        details.hidden = !details.hidden;
+        more.setAttribute('aria-expanded', String(!details.hidden));
+      };
+      const get = el('button', 'get');
+      get.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19h14"/></svg>';
+      get.title = `Download ${outName}`;
+      get.setAttribute('aria-label', get.title);
+      get.onclick = () => download(new Blob([bytes]), outName);
+      row.append(more, get);
+      li.append(details);
+    } catch (e) {
+      li.className = 'file err';
+      li.append(el('div', 'error', e.message));
+      console.error(e);
+    }
+    $('actions').hidden = results.length < 2;
+  }
+
+  async function handleAll(list) {
+    for (const f of [...list].filter((f) => /\.fbx$/i.test(f.name))) await handle(f);
+  }
+
+  $('input').addEventListener('change', (e) => { handleAll(e.target.files); e.target.value = ''; });
+
+  // Drop anywhere on the page
+  const drop = $('drop');
+  let depth = 0;
+  addEventListener('dragenter', (e) => { e.preventDefault(); depth++; drop.classList.add('over'); });
+  addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+  addEventListener('dragover', (e) => e.preventDefault());
+  addEventListener('drop', (e) => {
+    e.preventDefault(); depth = 0; drop.classList.remove('over');
+    handleAll(e.dataTransfer.files);
+  });
+
+  $('zip').onclick = () => download(makeZip(results), 'mixamo_UE.zip');
+  $('clear').onclick = () => { results.length = 0; $('files').innerHTML = ''; $('actions').hidden = true; };
+</script>
+</body>
+</html>

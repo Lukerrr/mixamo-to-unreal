@@ -1,0 +1,6 @@
+# Test files and conversion results
+*.fbx
+out/
+
+node_modules/
+.DS_Store
