@@ -153,6 +153,8 @@
   .error { margin: 6px 0 2px 40px; color: var(--err); font-size: 13px; }
 
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px; }
+  .actions-right { display: flex; gap: 20px; }
+  .link:disabled { opacity: .4; cursor: default; }
   .link { border: 0; background: none; font: inherit; font-size: 14px; color: var(--soft); cursor: pointer; padding: 0; }
   .link:hover { color: var(--ink); }
   .link.strong { color: var(--accent); font-weight: 500; }
@@ -283,7 +285,10 @@
   <ul id="files"></ul>
   <div class="actions" id="actions" hidden>
     <button class="link" id="clear">Clear</button>
-    <button class="link strong" id="zip">Download all as .zip</button>
+    <span class="actions-right">
+      <button class="link" id="rerunAll">Rerun all</button>
+      <button class="link strong" id="zip">Download all as .zip</button>
+    </span>
   </div>
 
   <section class="faq" id="faq">
@@ -385,8 +390,9 @@
     b.setAttribute('aria-label', title);
     return b;
   }
+  const runs = new Map(); // li -> run()
   function updateActions() {
-    $('actions').hidden = results.length === 0;
+    $('actions').hidden = $('files').children.length === 0;
     $('zip').hidden = results.length < 2;
   }
 
@@ -443,6 +449,7 @@
       updateActions();
     }
     rerun.onclick = run;
+    runs.set(li, run);
     await run();
   }
 
@@ -544,7 +551,12 @@
   }).observe($('files'), { childList: true });
 
   $('zip').onclick = () => download(makeZip(results), 'mixamo_UE.zip');
-  $('clear').onclick = () => { closePreview(); results.length = 0; $('files').innerHTML = ''; updateActions(); };
+  $('rerunAll').onclick = async () => {
+    $('rerunAll').disabled = true;
+    for (const li of $('files').children) await runs.get(li)?.();
+    $('rerunAll').disabled = false;
+  };
+  $('clear').onclick = () => { closePreview(); runs.clear(); results.length = 0; $('files').innerHTML = ''; updateActions(); };
 </script>
 </body>
 </html>
