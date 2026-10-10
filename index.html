@@ -98,6 +98,7 @@
 
   /* files */
   #files { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 8px; }
+  #files:empty { margin: 0; }
   .file {
     background: var(--card); padding: 8px 8px 8px 16px; box-shadow: var(--shadow);
     animation: pop .25s ease;
@@ -132,7 +133,7 @@
   .link.strong { color: var(--accent); font-weight: 500; }
 
   /* faq */
-  .faq { margin-top: 72px; }
+  .faq { margin-top: 40px; }
   .faq h2 { font-size: 15px; font-weight: 500; color: var(--soft); margin: 0 0 8px 4px; }
   .faq details { border-top: 1px solid var(--line); }
   .faq details:last-child { border-bottom: 1px solid var(--line); }
