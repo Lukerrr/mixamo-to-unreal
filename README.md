@@ -2,7 +2,7 @@
 
 Converts Mixamo FBX animations for Unreal Engine. Runs entirely in the browser (no server, no dependencies).
 
-[![Try it out](https://img.shields.io/badge/Try%20it%20out-ff7a45?style=for-the-badge)](https://lukerrr.github.io/mixamo-to-unreal/)
+[![Try it out](.github/try-it-out.svg)](https://lukerrr.github.io/mixamo-to-unreal/)
 
 What it does:
 - adds a root bone above `Hips` (including the bind pose);
