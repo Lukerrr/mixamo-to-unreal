@@ -53,6 +53,39 @@ export async function createPreview(container) {
   marker.position.y = 0.5;
   scene.add(marker);
 
+  // Axes gizmo in the corner, turns together with the camera
+  const GIZMO = 110;
+  const gizmoScene = new THREE.Scene();
+  const gizmoCam = new THREE.OrthographicCamera(-1.6, 1.6, 1.6, -1.6, 0.1, 10);
+  const axes = [
+    ['X', new THREE.Vector3(1, 0, 0), '#ff6b6f'],
+    ['Y', new THREE.Vector3(0, 1, 0), '#5cc98e'],
+    ['Z', new THREE.Vector3(0, 0, 1), '#5b9dff'],
+  ];
+  for (const [name, dir, color] of axes) {
+    const c = new THREE.Color(color);
+    gizmoScene.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(0.95)]),
+      new THREE.LineBasicMaterial({ color: c }),
+    ));
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 12), new THREE.MeshBasicMaterial({ color: c }));
+    tip.position.copy(dir).multiplyScalar(1.0);
+    tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    gizmoScene.add(tip);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = color;
+    ctx.font = '600 40px "DM Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, 32, 34);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+    label.position.copy(dir).multiplyScalar(1.38);
+    label.scale.setScalar(0.5);
+    gizmoScene.add(label);
+  }
+
   let model, mixer, rootBone, skeletonHelper, joints, trail, lastRoot;
   const clock = new THREE.Clock();
   const tmp = new THREE.Vector3();
@@ -84,19 +117,23 @@ export async function createPreview(container) {
     const bones = bonesOf(model);
     rootBone = bones.find((b) => b.name === 'root') || bones[0];
 
-    if (!hasMesh) {
-      skeletonHelper = new THREE.SkeletonHelper(model);
-      skeletonHelper.material.vertexColors = false;
-      skeletonHelper.material.color = soft.clone().lerp(new THREE.Color(0xffffff), 0.5);
-      scene.add(skeletonHelper);
-      joints = new THREE.Points(
-        new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(bones.length * 3), 3)),
-        new THREE.PointsMaterial({ color: 0xffffff, size: 4, sizeAttenuation: false }),
-      );
-      joints.userData.bones = bones;
-      joints.frustumCulled = false;
-      scene.add(joints);
-    }
+    // Skeleton is always drawn, on top of the mesh when there is one
+    skeletonHelper = new THREE.SkeletonHelper(model);
+    skeletonHelper.material.vertexColors = false;
+    skeletonHelper.material.color = hasMesh ? accent.clone() : soft.clone().lerp(new THREE.Color(0xffffff), 0.5);
+    skeletonHelper.material.depthTest = false;
+    skeletonHelper.material.transparent = true;
+    skeletonHelper.material.opacity = hasMesh ? 0.9 : 1;
+    skeletonHelper.renderOrder = 10;
+    scene.add(skeletonHelper);
+    joints = new THREE.Points(
+      new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(bones.length * 3), 3)),
+      new THREE.PointsMaterial({ color: hasMesh ? accent : 0xffffff, size: hasMesh ? 3 : 4, sizeAttenuation: false, depthTest: false, transparent: true }),
+    );
+    joints.userData.bones = bones;
+    joints.frustumCulled = false;
+    joints.renderOrder = 11;
+    scene.add(joints);
 
     mixer = new THREE.AnimationMixer(model);
     const clip = model.animations[0];
@@ -155,6 +192,19 @@ export async function createPreview(container) {
     }
     controls.update();
     renderer.render(scene, camera);
+
+    gizmoCam.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(4);
+    gizmoCam.quaternion.copy(camera.quaternion);
+    const w = container.clientWidth;
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.setScissorTest(true);
+    renderer.setScissor(w - GIZMO, 0, GIZMO, GIZMO);
+    renderer.setViewport(w - GIZMO, 0, GIZMO, GIZMO);
+    renderer.render(gizmoScene, gizmoCam);
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, w, container.clientHeight);
+    renderer.autoClear = true;
   }
 
   function resize() {
