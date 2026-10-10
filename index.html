@@ -123,7 +123,7 @@
   #files { list-style: none; margin: 40px 0 0; padding: 0; display: grid; gap: 8px; }
   #files:empty { margin: 0; }
   .file {
-    background: var(--card); padding: 8px 8px 8px 16px; box-shadow: var(--shadow);
+    background: var(--card); padding: 8px 8px 8px 6px; box-shadow: var(--shadow);
     animation: pop .25s ease;
   }
   @keyframes pop { from { opacity: 0; transform: translateY(6px); } }
@@ -133,8 +133,10 @@
   .file.ok .dot { background: var(--ok); }
   .file.err .dot { background: var(--err); }
   @keyframes blink { 50% { opacity: .3; } }
-  .name { flex: 1; min-width: 0; font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .play, .more, .get {
+  .slot { flex: none; width: 34px; height: 34px; display: grid; place-items: center; }
+  .spacer { flex: 1; }
+  .name { flex: 0 1 auto; min-width: 0; font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .play, .rerun, .more, .get {
     flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
     border: 0; border-radius: 10px; background: none; cursor: pointer;
     transition: background .15s ease, color .15s ease, transform .1s ease;
@@ -144,11 +146,11 @@
   .get { color: var(--accent); }
   .get:hover { background: var(--accent-wash); }
   .get:active { transform: scale(.9); }
-  .more:active, .play:active { transform: scale(.9); }
-  .play:focus-visible, .more:focus-visible, .get:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .details { margin: 8px 0 2px 18px; padding: 0; list-style: none; color: var(--soft); font-size: 13px; }
+  .more:active, .play:active, .rerun:active { transform: scale(.9); }
+  .play:focus-visible, .rerun:focus-visible, .more:focus-visible, .get:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .details { margin: 8px 0 2px 40px; padding: 0; list-style: none; color: var(--soft); font-size: 13px; }
   .details li::before { content: "· "; }
-  .error { margin: 6px 0 2px 18px; color: var(--err); font-size: 13px; }
+  .error { margin: 6px 0 2px 40px; color: var(--err); font-size: 13px; }
 
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px; }
   .link { border: 0; background: none; font: inherit; font-size: 14px; color: var(--soft); cursor: pointer; padding: 0; }
@@ -196,8 +198,11 @@
   .scrub::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; }
   .scrub:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
   .file.active .name { color: var(--accent); }
-  .play { color: var(--soft); }
-  .play:hover, .file.active .play { color: var(--ink); background: var(--line); }
+  .play { color: var(--ok); }
+  .play:hover, .file.active .play { background: var(--line); }
+  .rerun { color: var(--soft); }
+  .rerun:hover { color: var(--ink); background: var(--line); }
+  .rerun:disabled { opacity: .4; cursor: default; background: none; }
 
   /* faq */
   .faq { margin-top: 40px; }
@@ -369,48 +374,76 @@
 
   const el = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, text ? { textContent: text } : {});
 
-  async function handle(file) {
-    const li = el('li', 'file busy');
-    const row = el('div', 'row');
-    row.append(el('span', 'dot'), el('span', 'name', file.name));
-    li.append(row);
-    $('files').append(li);
-    try {
-      const { bytes, report } = await convertMixamo(await file.arrayBuffer(), options());
-      const outName = file.name.replace(/\.fbx$/i, '') + '_UE.fbx';
-      results.push({ name: outName, bytes });
-      li.className = 'file ok';
+  const ICON_PLAY_SMALL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>';
+  const ICON_RERUN = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>';
+  const ICON_MORE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+  const ICON_DOWNLOAD = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19h14"/></svg>';
+  function iconButton(cls, icon, title) {
+    const b = el('button', cls);
+    b.innerHTML = icon;
+    b.title = title;
+    b.setAttribute('aria-label', title);
+    return b;
+  }
+  function updateActions() {
+    $('actions').hidden = results.length === 0;
+    $('zip').hidden = results.length < 2;
+  }
 
-      const details = el('ul', 'details');
-      details.hidden = true;
-      for (const line of report) details.append(el('li', '', line));
-      const more = el('button', 'more');
-      more.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
-      more.title = 'Details';
-      more.setAttribute('aria-label', 'Details');
-      more.setAttribute('aria-expanded', 'false');
-      more.onclick = () => {
-        details.hidden = !details.hidden;
-        more.setAttribute('aria-expanded', String(!details.hidden));
-      };
-      const get = el('button', 'get');
-      get.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19h14"/></svg>';
-      get.title = `Download ${outName}`;
-      get.setAttribute('aria-label', get.title);
-      get.onclick = () => download(new Blob([bytes]), outName);
-      const play = el('button', 'play');
-      play.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>';
-      play.title = 'Preview in 3D';
-      play.setAttribute('aria-label', play.title);
-      play.onclick = () => openPreview(li, bytes, outName);
-      row.append(play, more, get);
-      li.append(details);
-    } catch (e) {
-      li.className = 'file err';
-      li.append(el('div', 'error', e.message));
-      console.error(e);
+  async function handle(file) {
+    const outName = file.name.replace(/\.fbx$/i, '') + '_UE.fbx';
+    const entry = { name: outName, bytes: null };
+    const li = el('li', 'file');
+    const row = el('div', 'row');
+    const slot = el('span', 'slot');
+    const play = iconButton('play', ICON_PLAY_SMALL, 'Preview in 3D');
+    const rerun = iconButton('rerun', ICON_RERUN, 'Convert again with the current settings');
+    const more = iconButton('more', ICON_MORE, 'Details');
+    const get = iconButton('get', ICON_DOWNLOAD, `Download ${outName}`);
+    const details = el('ul', 'details');
+    const error = el('div', 'error');
+    details.hidden = error.hidden = true;
+    more.setAttribute('aria-expanded', 'false');
+    more.onclick = () => {
+      details.hidden = !details.hidden;
+      more.setAttribute('aria-expanded', String(!details.hidden));
+    };
+    get.onclick = () => download(new Blob([entry.bytes]), outName);
+    play.onclick = () => openPreview(li, entry.bytes, outName);
+    row.append(slot, el('span', 'name', file.name), rerun, el('span', 'spacer'), more, get);
+    li.append(row, details, error);
+    $('files').append(li);
+    const input = await file.arrayBuffer();
+
+    async function run() {
+      const active = li.classList.contains('active');
+      li.className = 'file busy' + (active ? ' active' : '');
+      slot.replaceChildren(el('span', 'dot'));
+      rerun.disabled = true;
+      more.hidden = get.hidden = true;
+      error.hidden = true;
+      try {
+        const { bytes, report } = await convertMixamo(input, options());
+        entry.bytes = bytes;
+        if (!results.includes(entry)) results.push(entry);
+        details.replaceChildren(...report.map((line) => el('li', '', line)));
+        li.className = 'file ok' + (active ? ' active' : '');
+        slot.replaceChildren(play);
+        more.hidden = get.hidden = false;
+        if (active && !$('modal').hidden) openPreview(li, bytes, outName);
+      } catch (e) {
+        const i = results.indexOf(entry);
+        if (i >= 0) results.splice(i, 1);
+        li.className = 'file err';
+        error.textContent = e.message;
+        error.hidden = false;
+        console.error(e);
+      }
+      rerun.disabled = false;
+      updateActions();
     }
-    $('actions').hidden = results.length < 2;
+    rerun.onclick = run;
+    await run();
   }
 
   // 3D preview (three.js is loaded on first open)
@@ -511,7 +544,7 @@
   }).observe($('files'), { childList: true });
 
   $('zip').onclick = () => download(makeZip(results), 'mixamo_UE.zip');
-  $('clear').onclick = () => { closePreview(); results.length = 0; $('files').innerHTML = ''; $('actions').hidden = true; };
+  $('clear').onclick = () => { closePreview(); results.length = 0; $('files').innerHTML = ''; updateActions(); };
 </script>
 </body>
 </html>
