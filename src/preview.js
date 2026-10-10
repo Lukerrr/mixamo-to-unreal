@@ -26,7 +26,6 @@ export async function createPreview(container) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(35, 1, 1, 20000);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
   controls.enablePan = false;
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2622, 2.2));
