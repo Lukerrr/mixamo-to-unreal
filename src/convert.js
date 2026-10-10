@@ -33,6 +33,7 @@ export const DEFAULT_OPTIONS = {
   rootName: 'root',
   rootMotion: 'horizontal', // 'horizontal' | 'all' | 'none'
   rootVertical: false,      // also move vertical hips movement, root never goes below the ground
+  startAtOrigin: true,      // shift the animation horizontally so the first frame stands at the origin
   rootRotation: false,      // move hips yaw (rotation around the up axis) to root
   removeEmptyTakes: true,
 };
@@ -149,7 +150,7 @@ export async function convertMixamo(input, options = {}) {
   report.push(`Added "${opt.rootName}" bone above "${splitName(hips.props[1].value).name}"`);
 
   // ---- move root motion (translation and optionally yaw) from Hips to root ----
-  if (opt.rootMotion !== 'none' || opt.rootRotation || opt.rootVertical) {
+  if (opt.rootMotion !== 'none' || opt.rootRotation || opt.rootVertical || opt.startAtOrigin) {
     await moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, newId, addObject, connect });
   }
 
@@ -209,8 +210,10 @@ async function moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, new
     const rootYaw = new Float32Array(n);
     const hipsR = AXES.map(() => new Float32Array(n));
     let prevYaw = 0, prevEuler = rv ? [rv[0][0], rv[1][0], rv[2][0]] : [0, 0, 0];
+    // Constant horizontal shift that puts the first frame over the origin
+    const shift = AXES.map((_, i) => (opt.startAtOrigin && i !== up ? tv[i][0] - rest[i] : 0));
     for (let k = 0; k < n; k++) {
-      const h = [tv[0][k], tv[1][k], tv[2][k]];
+      const h = [tv[0][k] - shift[0], tv[1][k] - shift[1], tv[2][k] - shift[2]];
       const r = AXES.map((_, i) => (moved.includes(i) ? h[i] - rest[i] : 0));
       if (vertical) r[up] = Math.max(0, h[up] - rest[up]); // lifts on jumps, stays on the ground otherwise
       let psi = 0;
@@ -274,6 +277,9 @@ async function moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, new
 
     const parts = [];
     if (moved.length) parts.push(`translation ${moved.map((i) => AXES[i]).join('')}`);
+    if (shift.some((v) => Math.abs(v) > 1e-4)) {
+      report.push(`Moved the start to the origin (shifted by ${shift.filter((_, i) => i !== up).map((v) => v.toFixed(1)).join(', ')} cm)`);
+    }
     if (vertical) parts.push(`vertical ${AXES[up]} (on ground)`);
     if (doYaw) parts.push('yaw rotation');
     if (parts.length) report.push(`Root motion (${parts.join(' + ')}) moved from hips to ${opt.rootName}`);

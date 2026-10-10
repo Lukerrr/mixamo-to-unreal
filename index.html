@@ -268,6 +268,11 @@
       <span class="switch" aria-hidden="true"></span>
       <span><span class="label">Root rotation</span><span class="hint">Turning rotates the root</span></span>
     </label>
+    <label class="toggle">
+      <input id="startAtOrigin" type="checkbox" checked>
+      <span class="switch" aria-hidden="true"></span>
+      <span><span class="label">Start at origin</span><span class="hint">First frame stands at 0, 0</span></span>
+    </label>
   </div>
 
   <ul id="files"></ul>
@@ -336,7 +341,7 @@
   const $ = (id) => document.getElementById(id);
   const results = []; // {name, bytes}
 
-  for (const id of ['rootMotion', 'rootRotation', 'rootVertical']) {
+  for (const id of ['rootMotion', 'rootRotation', 'rootVertical', 'startAtOrigin']) {
     const key = 'm2ue-' + id;
     try {
       const saved = localStorage.getItem(key);
@@ -351,6 +356,7 @@
     rootMotion: $('rootMotion').checked ? 'horizontal' : 'none',
     rootRotation: $('rootRotation').checked,
     rootVertical: $('rootVertical').checked,
+    startAtOrigin: $('startAtOrigin').checked,
   });
 
   function download(blob, name) {
