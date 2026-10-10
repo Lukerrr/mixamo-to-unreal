@@ -52,14 +52,15 @@ export async function createPreview(container) {
   marker.position.y = 0.5;
   scene.add(marker);
 
-  // Axes gizmo in the corner, turns together with the camera
+  // Axes gizmo in the corner, turns together with the camera.
+  // Labels follow Unreal Engine (Z up, left-handed): file X -> UE X, file Y (up) -> UE Z, file Z (forward) -> UE Y.
   const GIZMO = 110;
   const gizmoScene = new THREE.Scene();
   const gizmoCam = new THREE.OrthographicCamera(-1.6, 1.6, 1.6, -1.6, 0.1, 10);
   const axes = [
     ['X', new THREE.Vector3(1, 0, 0), '#ff6b6f'],
-    ['Y', new THREE.Vector3(0, 1, 0), '#5cc98e'],
-    ['Z', new THREE.Vector3(0, 0, 1), '#5b9dff'],
+    ['Y', new THREE.Vector3(0, 0, 1), '#5cc98e'],
+    ['Z', new THREE.Vector3(0, 1, 0), '#5b9dff'],
   ];
   for (const [name, dir, color] of axes) {
     const c = new THREE.Color(color);
