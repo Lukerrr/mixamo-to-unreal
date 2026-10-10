@@ -86,7 +86,8 @@ export async function createPreview(container) {
     gizmoScene.add(label);
   }
 
-  let model, mixer, rootBone, skeletonHelper, joints, trail, lastRoot;
+  let model, mixer, rootBone, skeletonHelper, joints, trail, lastRoot, duration = 0, paused = false;
+  const api = { onTick: null };
   const clock = new THREE.Clock();
   const tmp = new THREE.Vector3();
   const quat = new THREE.Quaternion();
@@ -138,6 +139,7 @@ export async function createPreview(container) {
     mixer = new THREE.AnimationMixer(model);
     const clip = model.animations[0];
     if (clip) mixer.clipAction(clip).play();
+    duration = clip ? clip.duration : 0;
 
     // Sample the root path once over the whole clip
     const points = [];
@@ -172,7 +174,7 @@ export async function createPreview(container) {
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);
     if (mixer) {
-      mixer.update(dt);
+      mixer.update(paused ? 0 : dt);
       model.updateMatrixWorld(true);
       rootBone.getWorldPosition(tmp);
       marker.position.set(tmp.x, 0.5, tmp.z);
@@ -192,6 +194,7 @@ export async function createPreview(container) {
     }
     controls.update();
     renderer.render(scene, camera);
+    if (mixer && api.onTick) api.onTick(mixer.time % (duration || 1), duration, paused);
 
     gizmoCam.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(4);
     gizmoCam.quaternion.copy(camera.quaternion);
@@ -219,8 +222,11 @@ export async function createPreview(container) {
   resize();
   renderer.setAnimationLoop(frame);
 
-  return {
+  return Object.assign(api, {
     show,
+    isPaused: () => paused,
+    setPaused(v) { paused = !!v; },
+    setTime(t) { if (mixer) mixer.setTime(Math.max(0, Math.min(t, duration))); },
     dispose() {
       clear();
       ro.disconnect();
@@ -228,5 +234,5 @@ export async function createPreview(container) {
       renderer.dispose();
       renderer.domElement.remove();
     },
-  };
+  });
 }

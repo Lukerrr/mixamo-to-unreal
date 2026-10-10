@@ -163,19 +163,38 @@
   @keyframes fade { from { opacity: 0; } }
   .preview {
     position: relative; width: min(960px, 100%); max-height: calc(100vh - 32px); aspect-ratio: 4 / 3;
-    background: var(--card); box-shadow: 0 24px 64px rgba(0, 0, 0, .5); overflow: hidden; animation: pop .2s ease;
+    display: flex; flex-direction: column; background: var(--card); box-shadow: 0 24px 64px rgba(0, 0, 0, .5); overflow: hidden; animation: pop .2s ease;
   }
   body.locked { overflow: hidden; }
-  .stage, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage { position: relative; flex: 1; min-height: 0; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .stage canvas { cursor: grab; }
   .stage canvas:active { cursor: grabbing; }
-  .preview-name { position: absolute; left: 14px; bottom: 12px; font-size: 13px; color: var(--soft); pointer-events: none; }
+  .preview-name { position: absolute; left: 16px; top: 15px; font-size: 13px; color: var(--soft); pointer-events: none; }
   .preview-close {
     position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; display: grid; place-items: center;
     border: 0; border-radius: 10px; background: none; color: var(--soft); cursor: pointer;
   }
   .preview-close:hover { color: var(--ink); background: var(--line); }
   .preview-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 14px; }
+  .timeline {
+    flex: none; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 16px 0 8px;
+    border-top: 1px solid var(--line);
+  }
+  .timeline button {
+    flex: none; width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+    border: 0; border-radius: 10px; background: none; color: var(--ink); cursor: pointer;
+  }
+  .timeline button:hover { background: var(--line); }
+  .timeline .time { flex: none; min-width: 92px; text-align: right; font-size: 13px; color: var(--soft); font-variant-numeric: tabular-nums; }
+  .scrub {
+    --p: 0%; flex: 1; min-width: 0; height: 4px; margin: 0; cursor: pointer;
+    -webkit-appearance: none; appearance: none; border-radius: 99px;
+    background: linear-gradient(to right, var(--accent) var(--p), var(--line) var(--p));
+  }
+  .scrub::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; }
+  .scrub::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; }
+  .scrub:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
   .file.active .name { color: var(--accent); }
   .play { color: var(--soft); }
   .play:hover, .file.active .play { color: var(--ink); background: var(--line); }
@@ -295,12 +314,18 @@
 
 <div class="modal" id="modal" hidden>
   <div class="preview" id="preview" role="dialog" aria-modal="true" aria-label="3D preview">
-    <div class="stage" id="stage"></div>
-    <span class="preview-name" id="previewName"></span>
+    <div class="stage" id="stage">
+      <span class="preview-name" id="previewName"></span>
+      <span class="preview-loading" id="previewLoading">Loading 3D…</span>
+    </div>
+    <div class="timeline">
+      <button id="playPause" title="Pause (Space)" aria-label="Pause"></button>
+      <input class="scrub" id="scrub" type="range" min="0" max="1" step="any" value="0" aria-label="Animation time">
+      <span class="time" id="time">0.00 / 0.00 s</span>
+    </div>
     <button class="preview-close" id="previewClose" title="Close preview" aria-label="Close preview">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
     </button>
-    <span class="preview-loading" id="previewLoading">Loading 3D…</span>
   </div>
 </div>
 
@@ -398,7 +423,10 @@
       }
       if (token !== previewToken) return;
       $('previewLoading').hidden = true;
+      preview.onTick = updateTimeline;
       preview.show(bytes);
+      preview.setPaused(false);
+      updatePlayIcon();
     } catch (e) {
       console.error(e);
       $('previewLoading').hidden = false;
@@ -412,6 +440,38 @@
     document.querySelectorAll('.file.active').forEach((x) => x.classList.remove('active'));
     if (preview) { preview.dispose(); preview = null; }
   }
+  // Timeline: play/pause, scrubbing, frame stepping
+  const ICON_PAUSE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  const ICON_PLAY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>';
+  let scrubbing = false;
+  function updatePlayIcon() {
+    const paused = preview?.isPaused();
+    $('playPause').innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
+    $('playPause').title = paused ? 'Play (Space)' : 'Pause (Space)';
+    $('playPause').setAttribute('aria-label', paused ? 'Play' : 'Pause');
+  }
+  function updateTimeline(t, duration) {
+    if (!scrubbing) $('scrub').value = t;
+    $('scrub').max = duration || 1;
+    $('scrub').style.setProperty('--p', `${(100 * (scrubbing ? +$('scrub').value : t)) / (duration || 1)}%`);
+    $('time').textContent = `${(scrubbing ? +$('scrub').value : t).toFixed(2)} / ${duration.toFixed(2)} s`;
+  }
+  const togglePlay = () => { if (preview) { preview.setPaused(!preview.isPaused()); updatePlayIcon(); } };
+  $('playPause').onclick = togglePlay;
+  $('scrub').addEventListener('pointerdown', () => { scrubbing = true; });
+  addEventListener('pointerup', () => { scrubbing = false; });
+  $('scrub').addEventListener('input', () => { preview?.setTime(+$('scrub').value); });
+  const FRAME = 1 / 30;
+  addEventListener('keydown', (e) => {
+    if ($('modal').hidden || !preview) return;
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target !== $('scrub')) {
+      e.preventDefault();
+      preview.setPaused(true); updatePlayIcon();
+      preview.setTime(+$('scrub').value + (e.key === 'ArrowRight' ? FRAME : -FRAME));
+    }
+  });
+
   $('previewClose').onclick = closePreview;
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closePreview(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('modal').hidden) closePreview(); });
