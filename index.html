@@ -134,8 +134,17 @@
 
   /* faq */
   .faq { margin-top: 40px; }
-  .faq h2 { font-size: 15px; font-weight: 500; color: var(--soft); margin: 0 0 8px 4px; }
-  .faq details { border-top: 1px solid var(--line); }
+  .faq h2 { margin: 0 0 8px; font: inherit; }
+  .faq-toggle {
+    border: 0; background: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--soft);
+    cursor: pointer; padding: 0 4px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .faq-toggle:hover { color: var(--ink); }
+  .faq-toggle svg { transition: transform .2s ease; }
+  .faq.collapsed .faq-toggle svg { transform: rotate(-90deg); }
+  .faq.collapsed .faq-items { display: none; }
+  .faq details:first-child { border-top: 1px solid var(--line); }
+  .faq details + details { border-top: 1px solid var(--line); }
   .faq details:last-child { border-bottom: 1px solid var(--line); }
   .faq summary {
     list-style: none; cursor: pointer; padding: 14px 4px; font-size: 15px;
@@ -190,28 +199,35 @@
     <button class="link strong" id="zip">Download all as .zip</button>
   </div>
 
-  <section class="faq">
-    <h2>FAQ</h2>
-    <details>
-      <summary>Why does Unreal need a root bone?</summary>
-      <p>Mixamo skeletons start at the Hips bone. Unreal Engine takes root motion from the top bone of the skeleton, so without a separate root bone the character can't move its capsule. This tool adds a <code>root</code> bone and moves the walking motion from the hips onto it.</p>
-    </details>
-    <details>
-      <summary>What does it change in the file?</summary>
-      <p>It adds a <code>root</code> bone, moves the horizontal hips movement onto it (and, if you want, the turning too) and renames bones to the UE Mannequin names: <code>pelvis</code>, <code>spine_01</code>, <code>thigh_l</code> and so on. The animation looks exactly the same as before.</p>
-    </details>
-    <details>
-      <summary>With Skin or Without Skin?</summary>
-      <p>Both work. Download from Mixamo as FBX Binary. A file with skin keeps its mesh, a file without skin stays skeleton only.</p>
-    </details>
-    <details>
-      <summary>How do I import it into Unreal Engine?</summary>
-      <p>Import a converted character with skin first. For animations without skin, pick that character's skeleton in the import dialog. To use root motion, turn on <code>Enable Root Motion</code> in the Animation Sequence.</p>
-    </details>
-    <details>
-      <summary>Is it free? Are my files uploaded?</summary>
-      <p>It's free. Everything runs in your browser, so your files never leave your computer.</p>
-    </details>
+  <section class="faq" id="faq">
+    <h2>
+      <button class="faq-toggle" id="faqToggle" aria-expanded="true" aria-controls="faqItems">
+        FAQ
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </h2>
+    <div class="faq-items" id="faqItems">
+      <details>
+        <summary>Why does Unreal need a root bone?</summary>
+        <p>Mixamo skeletons start at the Hips bone. Unreal Engine takes root motion from the top bone of the skeleton, so without a separate root bone the character can't move its capsule. This tool adds a <code>root</code> bone and moves the walking motion from the hips onto it.</p>
+      </details>
+      <details>
+        <summary>What does it change in the file?</summary>
+        <p>It adds a <code>root</code> bone, moves the horizontal hips movement onto it (and, if you want, the turning too) and renames bones to the UE Mannequin names: <code>pelvis</code>, <code>spine_01</code>, <code>thigh_l</code> and so on. The animation looks exactly the same as before.</p>
+      </details>
+      <details>
+        <summary>With Skin or Without Skin?</summary>
+        <p>Both work. Download from Mixamo as FBX Binary. A file with skin keeps its mesh, a file without skin stays skeleton only.</p>
+      </details>
+      <details>
+        <summary>How do I import it into Unreal Engine?</summary>
+        <p>Import a converted character with skin first. For animations without skin, pick that character's skeleton in the import dialog. To use root motion, turn on <code>Enable Root Motion</code> in the Animation Sequence.</p>
+      </details>
+      <details>
+        <summary>Is it free? Are my files uploaded?</summary>
+        <p>It's free. Everything runs in your browser, so your files never leave your computer.</p>
+      </details>
+    </div>
   </section>
 
   <footer>
@@ -307,6 +323,17 @@
     e.preventDefault(); depth = 0; drop.classList.remove('over');
     handleAll(e.dataTransfer.files);
   });
+
+  // FAQ: folds away once there are files, unfolds on click or after Clear
+  const setFaq = (open) => {
+    $('faq').classList.toggle('collapsed', !open);
+    $('faqToggle').setAttribute('aria-expanded', String(open));
+  };
+  $('faqToggle').onclick = () => setFaq($('faq').classList.contains('collapsed'));
+  new MutationObserver(() => {
+    const has = $('files').children.length > 0;
+    if (has !== (setFaq.hadFiles ?? false)) { setFaq(!has); setFaq.hadFiles = has; }
+  }).observe($('files'), { childList: true });
 
   $('zip').onclick = () => download(makeZip(results), 'mixamo_UE.zip');
   $('clear').onclick = () => { results.length = 0; $('files').innerHTML = ''; $('actions').hidden = true; };
