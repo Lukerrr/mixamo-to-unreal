@@ -32,6 +32,7 @@ export const DEFAULT_OPTIONS = {
   naming: 'mannequin',    // 'mannequin' | 'strip' | 'keep'
   rootName: 'root',
   rootMotion: 'horizontal', // 'horizontal' | 'all' | 'none'
+  rootVertical: false,      // also move vertical hips movement, root never goes below the ground
   rootRotation: false,      // move hips yaw (rotation around the up axis) to root
   removeEmptyTakes: true,
 };
@@ -148,7 +149,7 @@ export async function convertMixamo(input, options = {}) {
   report.push(`Added "${opt.rootName}" bone above "${splitName(hips.props[1].value).name}"`);
 
   // ---- move root motion (translation and optionally yaw) from Hips to root ----
-  if (opt.rootMotion !== 'none' || opt.rootRotation) {
+  if (opt.rootMotion !== 'none' || opt.rootRotation || opt.rootVertical) {
     await moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, newId, addObject, connect });
   }
 
@@ -168,6 +169,7 @@ async function moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, new
     throw new Error('Root rotation needs hips rotation order XYZ');
   }
   const moved = opt.rootMotion === 'none' ? [] : AXES.map((_, i) => i).filter((i) => opt.rootMotion === 'all' || i !== up);
+  const vertical = opt.rootVertical && !moved.includes(up);
   const vec = (name, def = [0, 0, 0]) => prop70(hips, name)?.props.slice(4).map((p) => p.value) ?? def;
   const rest = vec('Lcl Translation');
   const pre = eulerXYZ(vec('PreRotation'));
@@ -210,6 +212,7 @@ async function moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, new
     for (let k = 0; k < n; k++) {
       const h = [tv[0][k], tv[1][k], tv[2][k]];
       const r = AXES.map((_, i) => (moved.includes(i) ? h[i] - rest[i] : 0));
+      if (vertical) r[up] = Math.max(0, h[up] - rest[up]); // lifts on jumps, stays on the ground otherwise
       let psi = 0;
       let rot = null;
       if (doYaw) {
@@ -271,6 +274,7 @@ async function moveRootMotion({ fbx, opt, report, hips, rootId, byId, conns, new
 
     const parts = [];
     if (moved.length) parts.push(`translation ${moved.map((i) => AXES[i]).join('')}`);
+    if (vertical) parts.push(`vertical ${AXES[up]} (on ground)`);
     if (doYaw) parts.push('yaw rotation');
     if (parts.length) report.push(`Root motion (${parts.join(' + ')}) moved from hips to ${opt.rootName}`);
   }
